@@ -1,13 +1,15 @@
-require 'HTTParty'
 require 'Nokogiri'
 require 'JSON'
 require 'Pry'
 require 'csv'
 require 'mechanize'
 
+## This is the least performant and worst code ever. I'm just hacking something together for a friend real quick and my data size is relatively small. Don't judge!
+
 class RockAndIceScraper
 
-  attr_accessor :agent, :page, :homepage_he_count, :homepage_hes, :homepage_she_count, :homepage_shes, :scraped_pages, :error_pages, :news, :news_scraped_pages
+  attr_accessor :agent, :page, :homepage_he_count, :homepage_hes, :homepage_she_count, :homepage_shes, :scraped_pages, :error_pages, :news, :news_scraped_pages, :articles_with_he_no_she,
+  :articles_with_she_no_he, :articles_with_any_she, :articles_with_any_he, :overall_he_occurences, :overall_she_occurences
 
   def initialize
     @agent = Mechanize.new
@@ -20,6 +22,12 @@ class RockAndIceScraper
     @news_scraped_pages = {}
     @error_pages = {}
     @news = @agent.get("http://www.rockandice.com/climbing-news-stories")
+    @articles_with_he_no_she = []
+    @articles_with_she_no_he = []
+    @articles_with_any_she = []
+    @articles_with_any_he = []
+    @overall_he_occurences = 0
+    @overall_she_occurences = 0
   end
 
 
@@ -77,7 +85,7 @@ class RockAndIceScraper
   def deep_scrape_news
     links = [".article-list-link a"]
     links.each do |link_type|
-      @news.search(link_type)[0..100].each do |news_node|
+      @news.search(link_type)[0..400].each do |news_node|
         destination = news_node.attributes["href"].value
         begin
             sub_page = agent.get(destination)
@@ -92,7 +100,20 @@ class RockAndIceScraper
   end
 
   def totals
-  end 
+    @news_scraped_pages.each do |article|
+      @articles_with_he_no_she.push(article.first) if (article.last["he"] > 0) && (article.last["she"] == 0)
+      @articles_with_she_no_he.push(article.first) if (article.last["she"] > 0) && (article.last["he"] == 0)
+      @articles_with_any_she.push(article.first) if article.last["she"] > 0
+      @articles_with_any_he.push(article.first) if article.last["he"] > 0
+    end
+  end
+
+  def overall
+    @news_scraped_pages.each do |article|
+      @overall_he_occurences += article.last["he"]
+      @overall_she_occurences += article.last["she"]
+    end
+  end
 
 end
 
